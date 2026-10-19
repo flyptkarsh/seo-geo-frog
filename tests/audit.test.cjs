@@ -48,6 +48,7 @@ test('popup renders untrusted page text safely and filters results',async()=>{
  w.eval(fs.readFileSync(path.join(root,'summary.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'icons.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'social.js'),'utf8'));
+ w.eval(fs.readFileSync(path.join(root,'learn.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'popup.js'),'utf8'));
  await new Promise(resolve=>setTimeout(resolve,20));
  assert.equal(w.document.getElementById('results').hidden,false);
@@ -84,6 +85,7 @@ test('popup explains unsupported pages',async()=>{
  const dom=new JSDOM(fs.readFileSync(path.join(root,'popup.html'),'utf8'),{runScripts:'outside-only'});
  dom.window.chrome={tabs:{query:async()=>[{id:1,url:'chrome://extensions'}]}};
  dom.window.eval(fs.readFileSync(path.join(root,'social.js'),'utf8'));
+ dom.window.eval(fs.readFileSync(path.join(root,'learn.js'),'utf8'));
  dom.window.eval(fs.readFileSync(path.join(root,'popup.js'),'utf8'));
  await new Promise(resolve=>setTimeout(resolve,20));
  assert.match(dom.window.document.getElementById('message').textContent,/HTTP or HTTPS/);
@@ -187,7 +189,7 @@ test('side panel clears stale results after switching tabs or navigating',async(
  const r=audit('<title>First page</title><h1>First page</h1>');
  let activated,updated;
  w.chrome={tabs:{query:async()=>[{id:1,url:r.url,windowId:7}],onActivated:{addListener:fn=>activated=fn},onUpdated:{addListener:fn=>updated=fn}},scripting:{executeScript:async opts=>{if(opts.world==='MAIN')throw Error('No runtime in fixture');return [{result:structuredClone(r)}];}}};
- for(const file of ['audit.js','diagnostics.js','grades.js','prompt.js','summary.js','icons.js','social.js','popup.js']) w.eval(fs.readFileSync(path.join(root,file),'utf8'));
+ for(const file of ['audit.js','diagnostics.js','grades.js','prompt.js','summary.js','icons.js','social.js','learn.js','popup.js']) w.eval(fs.readFileSync(path.join(root,file),'utf8'));
  await new Promise(resolve=>setTimeout(resolve,20));
  assert.equal(w.document.getElementById('results').hidden,false);
  activated({tabId:8,windowId:9});
@@ -254,7 +256,7 @@ test('Reaudit refreshes content; navigation waits, SPA changes debounce, missing
   if(opts.world==='MAIN')return [{result:{url,checks:[],metrics:{},errors:[],heavy:[],slow:[],active:true,startedAt:new Date().toISOString()}}];
   calls++;const r=audit('<title>Revision '+revision+'</title><h1>Test</h1>');r.url=url;return [{result:r}];
  }}};
- for(const name of ['audit','diagnostics','grades','prompt','summary','icons','social','popup'])w.eval(fs.readFileSync(path.join(root,name+'.js'),'utf8'));
+ for(const name of ['audit','diagnostics','grades','prompt','summary','icons','social','learn','popup'])w.eval(fs.readFileSync(path.join(root,name+'.js'),'utf8'));
  await pause(40);assert.equal(calls,1);
  revision=2;w.document.getElementById('rerun').click();await pause(40);
  assert.equal(calls,2);assert.match(w.document.getElementById('meta').textContent || w.document.body.textContent,/./);

@@ -15,6 +15,7 @@ An open-source Chrome extension for local SEO, generative engine optimization (G
 - **Speed:** available navigation timings, resource sizes, blocking-script candidates, and image sizing.
 - **JavaScript:** observe new runtime errors, unhandled rejections, resource failures, and long tasks after monitoring starts.
 - **Fix prompts:** generate editable prompts for individual findings or a collection of actionable items. Copy them into Claude, Codex, Cursor, or another coding tool with your repository.
+- **Learn as you audit:** each finding links to explanatory documentation, with a compact concept guide for every tab.
 - **Native side panel:** compact glass styling, manual reaudit, and automatic refresh on authorized page navigation while the panel is open.
 
 Accessibility auditing is planned for a later release. Existing image-alt and link-label checks are not a comprehensive accessibility audit.
@@ -41,7 +42,16 @@ npm ci
 npm test
 ```
 
-Tests use jsdom and mocked Chrome APIs. Also load the extension in Chrome to verify actual side-panel behavior, navigation, permissions, previews, and reaudit.
+Run the Chromium integration and layout checks as well:
+
+```sh
+npx playwright install chromium
+npm run test:browser
+```
+
+Both suites run in GitHub Actions on pushes and pull requests. The 27 automated tests cover audit data, grades, prompt scope and clipboard fallback, export versioning, unsafe preview URLs, optional images, documentation links, navigation races, and retry recovery. Browser checks exercise real audit functions on a controlled page, confirm native side-panel opening, and check all tabs at 320, 390, and 600 pixel widths.
+
+The browser audit fixture bridges Chrome APIs to a controlled test page; it does not simulate every real site's behavior or fully automate toolbar permission grants. Tests use jsdom and mocked Chrome APIs. Also load the extension in Chrome to verify actual side-panel behavior, navigation, permissions, previews, and reaudit.
 
 | Files | Responsibility |
 | --- | --- |

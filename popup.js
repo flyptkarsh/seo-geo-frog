@@ -28,6 +28,7 @@ function activateSection(key, focus=false) {
   $('category').value='all';
   for(const option of $('category').options) option.hidden=option.value!=='all' && !(sectionGroups[key] || []).includes(option.value);
   if(report) renderChecks();
+  $('concept-links').replaceChildren(...articlesForSection(key).map(articleLink));
 }
 function invalidateReport(message) {
   clearTimeout(autoAuditTimer);
@@ -42,6 +43,12 @@ function el(tag, text, className) {
   if (text !== undefined) node.textContent = text;
   if (className) node.className = className;
   return node;
+}
+function articleLink(article) {
+  const [title,publisher,url]=article;
+  const link=el('a',`${title} · ${publisher} ↗`,'learn-link');
+  link.href=url;link.target='_blank';link.rel='noopener noreferrer';
+  return link;
 }
 function findingGradeBadge(check) {
   const grade=gradeFinding(check);
@@ -59,6 +66,8 @@ function renderChecks() {
     summary.append(findingGradeBadge(c),el('span',labels[c.status],'badge '+c.status),el('span',c.title),el('span',c.group,'category'));
     const body = el('div',undefined,'detail');
     body.append(el('p',`${gradeFinding(c).letter || 'Ungraded'} · ${gradeFinding(c).meaning}. Finding grades describe status; category grades use weighted checks.`,'finding-grade-note'),el('div',c.evidence,'evidence'),el('p',c.advice,'advice'));
+    const articles=articlesForCheck(c);
+    if(articles.length) {const links=el('div',undefined,'finding-learning');links.append(el('span','Learn more','learn-label'),...articles.map(articleLink));body.append(links);}
     if(c.status==='review' || c.status==='issue') {
       const generate=el('button','Generate fix prompt','generate-fix');
       generate.type='button';generate.prepend(iconNode('sparkles'));
@@ -192,7 +201,7 @@ async function run(monitorAction = false) {
     if(current!==generation) return;
     if(latest?.id!==tab.id || (latest.url && latest.url!==report.url)) {invalidateReport('The page changed during the audit. Click the frog toolbar icon on the page you want to inspect.');return;}
     report.version=4;
-    report.tool={name:'SEO/GEO Frog',version:'4.3.2'};
+    report.tool={name:'SEO/GEO Frog',version:chrome.runtime?.getManifest?.().version || 'development'};
     report.limitations=report.limitations.filter(l=>!l.includes('field Core Web Vitals'));
     report.limitations.push('Speed metrics reflect one local navigation and available browser buffers, not field Core Web Vitals. Cross-origin restrictions can hide sizes/statuses; zero bytes does not prove zero cost.', 'Runtime errors are captured only after monitoring starts in the top-level page. Earlier console history, console.error calls, caught errors, and cross-origin iframe errors are not captured. Monitoring resets on navigation.', 'No site crawl, HTTP header inspection, robots.txt, sitemap, index verification, or link-destination health checks are performed.');
     render();
