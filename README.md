@@ -11,7 +11,7 @@ An open-source Chrome extension for local SEO, generative engine optimization (G
 - **SEO and structured data:** inspect titles, meta descriptions, canonical and robots tags, headings, images, links, and JSON-LD syntax and basic fields.
 - **GEO signals:** review content structure, attribution, and dates where relevant.
 - **AEO checks and tips:** Review unanswered question headings, snippet restrictions, and incomplete optional Q&A markup. Get practical advice on direct answers, definitions, sources, and useful structure, with an AEO grade and fix prompts. These local heuristics do not predict AI citations.
-- **Red toolbar badge:** Counts serious (`issue`) findings from the last audit for each tab. Review suggestions do not count. Clears on navigation, failed audits, and zero issues; refreshes on Reaudit. Pin Frog to see it in the toolbar. Auditing requires site access and the side panel; it does not silently scan every site.
+- **Overall grade badge:** Shows the page’s A–F grade, averaging available category scores with at least three graded categories. Green A/B, amber C, orange D, red F; `?` means insufficient data. The overview and tooltip disclose coverage. Clears on navigation or audit failure and refreshes on Reaudit. Pin Frog to see it; auditing still requires site access and the side panel.
 - **Report cards:** A–F category grades with a disclosed rubric and prioritized improvement bullets.
 - **Previews:** dedicated icon tabs for approximate Google, Bing, Facebook, LinkedIn, and X cards.
 - **Speed:** available navigation timings, resource sizes, blocking-script candidates, and image sizing.

@@ -300,3 +300,11 @@ test('AEO optional markup is ungraded when absent and incomplete answers get a f
   if(check.status==='review')assert.match(buildFixPrompt(report,{findings:[check]}),/Q&A markup completeness/);
  }
 });
+
+test('overall grade averages available categories, respects boundaries and requires coverage',()=>{
+ const {overallGrade}=require('../grades.js');
+ for(const [score,letter] of [[100,'A'],[90,'A'],[89,'B'],[80,'B'],[79,'C'],[70,'C'],[69,'D'],[60,'D'],[59,'F'],[0,'F']])assert.equal(overallGrade([{score},{score},{score},{score:null}]).letter,letter);
+ assert.equal(overallGrade([{score:100},{score:100},{score:null}]).letter,null);
+ const mixed=overallGrade([{score:90},{score:80},{score:60},{score:null}]);
+ assert.equal(mixed.score,77);assert.equal(mixed.measured,3);assert.equal(mixed.total,4);
+});

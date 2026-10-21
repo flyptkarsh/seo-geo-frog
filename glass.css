@@ -30,3 +30,5 @@ footer{flex-wrap:wrap}.creator-links{display:flex;justify-content:center;gap:16p
 
 /* Six compact report cards, with readable labels in narrow side panels. */
 .grades{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+.overall-grade{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px;margin:0 0 12px;padding:12px;border:1px solid #ffffffb8;border-radius:14px;background:#ffffff70}.overall-grade strong{font-size:18px}

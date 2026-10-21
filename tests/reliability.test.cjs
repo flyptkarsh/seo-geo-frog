@@ -32,7 +32,7 @@ test('late audit results cannot overwrite the page after navigation',async t=>{
  assert.equal($('page-url').textContent,state.tab.url);
  const stale=fixture('Stale title');stale.checks.push({status:'issue',title:'Stale issue'});
  resolveOld([{result:stale}]);await tick();
- assert.equal(state.badges.filter(b=>b.method==='setBadgeText').at(-1).text,'');
+ assert.equal(state.badges.filter(b=>b.method==='setBadgeText').at(-1).text,require('../grades.js').gradeReport(state.result).overall.letter);
  $('tab-previews').click();
  assert.equal(w.document.querySelector('.search-title').textContent,'Newest title');
  assert.equal($('rerun').disabled,false);
@@ -125,18 +125,18 @@ test('learning links are safe external links and guides follow the selected tab'
 });
 
 
-test('red badge counts only serious findings, refreshes and clears on navigation or failure',async t=>{
+test('overall badge matches report, refreshes and clears on navigation or failure',async t=>{
  const {state,$}=await panel(t);
  const last=method=>state.badges.filter(b=>b.method===method).at(-1);
- state.result.checks.push({status:'issue',title:'Test issue',group:'Content',evidence:'Example',advice:'Fix'}, {status:'review',title:'Review',group:'Content',evidence:'Example',advice:'Review'});
+ state.result.checks.forEach(c=>{if(c.status!=='info')c.status='pass';});
  $('rerun').click();await tick();
- assert.equal(last('setBadgeText').text,'1');assert.equal(last('setBadgeText').tabId,1);
- assert.equal(last('setBadgeBackgroundColor').color,'#DC2626');assert.equal(last('setBadgeTextColor').color,'#FFFFFF');
- assert.match(last('setTitle').title,/1 serious issue in last audit/);
- state.updated(1,{status:'loading'},{status:'loading'});
- assert.equal(last('setBadgeText').text,'');
- state.result.checks=state.result.checks.filter(c=>c.status!=='issue');
- $('rerun').click();await tick();assert.equal(last('setBadgeText').text,'');
+ assert.equal(last('setBadgeText').text,'A');assert.equal(last('setBadgeText').tabId,1);
+ assert.equal(last('setBadgeBackgroundColor').color,'#15803D');assert.equal(last('setBadgeTextColor').color,'#FFFFFF');
+ assert.match(last('setTitle').title,/Overall A/);assert.match($('overall-grade').textContent,/Overall A/);
+ state.updated(1,{status:'loading'},{status:'loading'});assert.equal(last('setBadgeText').text,'');
+ state.result.checks.forEach(c=>{if(c.status!=='info')c.status='issue';});
+ $('rerun').click();await tick();assert.equal(last('setBadgeText').text,'F');assert.equal(last('setBadgeBackgroundColor').color,'#DC2626');
+ state.result.checks=[];$('rerun').click();await tick();assert.equal(last('setBadgeText').text,'?');
  state.result=null;$('rerun').click();await tick();assert.equal(last('setBadgeText').text,'');
 });
 test('background clears badges on full and SPA navigation while panel is closed',async()=>{

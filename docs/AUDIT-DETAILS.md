@@ -140,3 +140,8 @@ Question detection uses terminal question marks (including full-width marks), ex
 Snippet checks inspect robots/googlebot meta restrictions and data-nosnippet within main content. They cannot establish actual crawler access or indexing. Preserve intentional restrictions. Tips cover direct answers, definitions, sources, authorship, and accurate dates. There is no required answer length, FAQ markup, or special AI file. Grades never predict citations, ranking, or answer-engine inclusion.
 
 Sources: [Google AI features](https://developers.google.com/search/docs/appearance/ai-features) and [helpful content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
+
+
+## Overall page grade (version 4.4.2)
+
+The toolbar badge and overview use the equal average of available category scores, rounded to an integer and mapped to the existing A–F thresholds. At least three categories must be graded; otherwise the badge shows `?`. Missing categories are excluded, and partial coverage is labeled provisional. The tooltip reports the numeric score and category count. A/B are green, C amber, D orange, and F red. Navigation and failed audits clear the badge. This is a local diagnostic summary, not a ranking or AI visibility prediction.

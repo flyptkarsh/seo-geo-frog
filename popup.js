@@ -30,16 +30,15 @@ function activateSection(key, focus=false) {
   if(report) renderChecks();
   $('concept-links').replaceChildren(...articlesForSection(key).map(articleLink));
 }
-// Badge counts confirmed issue findings, never contextual review suggestions.
-function updateIssueBadge(tabId, checks = null) {
+// Badge uses the same overall grade displayed in the report.
+function updateGradeBadge(tabId, overall = null) {
   if (!Number.isInteger(tabId) || !chrome.action) return;
-  const count=checks?.filter(c=>c.status==='issue').length || 0;
-  const title=checks ? `SEO/GEO Frog · ${count} serious issue${count===1?'':'s'} in last audit` : 'SEO/GEO Frog · Audit this page';
+  const title=overall ? overall.letter ? `SEO/GEO Frog · Overall ${overall.letter} (${overall.score}/100) · ${overall.measured}/${overall.total} categories graded · Last audit` : 'SEO/GEO Frog · Insufficient data for an overall grade' : 'SEO/GEO Frog · Audit this page';
   // Dispatch together without awaiting so navigation can immediately clear stale state.
   for(const [method,details] of [
-    ['setBadgeBackgroundColor',{color:'#DC2626'}],
+    ['setBadgeBackgroundColor',{color:({A:'#15803D',B:'#15803D',C:'#A16207',D:'#C2410C',F:'#DC2626'}[overall?.letter] || '#64748B')}],
     ['setBadgeTextColor',{color:'#FFFFFF'}],
-    ['setBadgeText',{text:count ? count>999?'999+':String(count) : ''}],
+    ['setBadgeText',{text:overall ? overall.letter || '?' : ''}],
     ['setTitle',{title}]
   ]) {
     try { chrome.action[method]?.({tabId,...details})?.catch(()=>{}); } catch {}
@@ -48,7 +47,7 @@ function updateIssueBadge(tabId, checks = null) {
 function invalidateReport(message) {
   clearTimeout(autoAuditTimer);
   generation++;auditRunning=false;report=null;
-  updateIssueBadge(auditedTabId);
+  updateGradeBadge(auditedTabId);
   $('results').hidden=true;$('message').hidden=false;
   $('message').textContent=message;
   $('page-url').textContent='Page changed · audit needed';$('rerun').disabled=false;
@@ -124,6 +123,9 @@ function render() {
   if(!d?.heavy.length) $('resources').textContent='No exposed resource sizes available.';
   report.checks.forEach(check=>{check.grade=gradeFinding(check);});
   report.grades=gradeReport(report);
+  const overall=report.grades.overall;
+  $('overall-grade').textContent=overall.letter ? `Overall ${overall.letter} · ${overall.score}/100` : 'Overall · Insufficient data';
+  $('overall-coverage').textContent=`${overall.measured}/${overall.total} categories graded${overall.measured<overall.total?' · Provisional':''}`;
   report.improvements=buildImprovementSummary(report);
   $('improvements').replaceChildren();
   $('improvement-count').textContent=report.improvements.total?`${report.improvements.items.length} of ${report.improvements.total} items`:'';
@@ -137,7 +139,7 @@ function render() {
   if(!report.improvements.items.length) $('improvements').append(el('li','No actionable findings in the checks available for this page.','summary-empty'));
   $('grades').replaceChildren();
   $('grade-breakdown').replaceChildren();
-  $('grade-method').textContent=report.grades.method;
+  $('grade-method').textContent=report.grades.overall.method+' '+report.grades.method;
   for(const g of report.grades.categories) {
     const card=el('button',undefined,'grade-card grade-card-'+(g.letter || 'none'));
     card.type='button';
@@ -193,7 +195,7 @@ async function run(monitorAction = false) {
   try {
     const [tab] = await activeTabQuery();
     if(current!==generation) return;
-    if (tab?.id) {auditedTabId=tab.id;panelWindowId=tab.windowId;updateIssueBadge(tab.id);}
+    if (tab?.id) {auditedTabId=tab.id;panelWindowId=tab.windowId;updateGradeBadge(tab.id);}
     if (!tab?.url) throw new Error('Click the frog toolbar icon to allow auditing this site. Automatic reauditing resumes after access is granted.');
     if (!tab?.id || !/^https?:\/\//i.test(tab.url || '')) throw new Error('Open a regular HTTP or HTTPS website, then click SEO/GEO Frog. Chrome internal pages, the Chrome Web Store, PDFs, and other protected pages cannot be audited.');
     auditedTabId=tab.id;panelWindowId=tab.windowId;
@@ -221,7 +223,7 @@ async function run(monitorAction = false) {
     report.limitations=report.limitations.filter(l=>!l.includes('field Core Web Vitals'));
     report.limitations.push('Speed metrics reflect one local navigation and available browser buffers, not field Core Web Vitals. Cross-origin restrictions can hide sizes/statuses; zero bytes does not prove zero cost.', 'Runtime errors are captured only after monitoring starts in the top-level page. Earlier console history, console.error calls, caught errors, and cross-origin iframe errors are not captured. Monitoring resets on navigation.', 'No site crawl, HTTP header inspection, robots.txt, sitemap, index verification, or link-destination health checks are performed.');
     render();
-    updateIssueBadge(tab.id,report.checks);
+    updateGradeBadge(tab.id,report.grades.overall);
     $('message').hidden=true;
     $('results').hidden=false;
   } catch(error) {

@@ -39,6 +39,13 @@ function gradeReport(report) {
     const letter=score===null?null:score>=90?'A':score>=80?'B':score>=70?'C':score>=60?'D':'F';
     return {key:def.key,name:def.name,letter,score,coverage:Math.round(100*observed/possible),note:def.note,reason:eligible?'Weighted observed checks.':'Insufficient data: need at least 50% weighted coverage'+(def.key==='speed'?' and two of TTFB, FCP, and LCP.':'.'),items:items.map(i=>({...i,pointsLost:eligible?Math.round(i.lostWeight/observed*1000)/10:null}))};
   });
-  return {rubricVersion:1,scope:'Current page only',method:'Pass earns full weight; review earns half; issue earns zero. Unavailable/informational checks are excluded. At least 50% weighted coverage is required. Speed also requires two primary timings. A 90–100, B 80–89, C 70–79, D 60–69, F below 60. Scores are rounded before assigning a letter. JavaScript clean-window observations are provisional.',categories};
+  const overall=overallGrade(categories);
+  return {overall,rubricVersion:2,scope:'Current page only',method:'Pass earns full weight; review earns half; issue earns zero. Unavailable/informational checks are excluded. At least 50% weighted coverage is required. Speed also requires two primary timings. A 90–100, B 80–89, C 70–79, D 60–69, F below 60. Scores are rounded before assigning a letter. JavaScript clean-window observations are provisional.',categories};
 }
-if(typeof module!=='undefined') module.exports={gradeReport};
+function overallGrade(categories) {
+  const measured=categories.filter(c=>Number.isFinite(c.score));
+  const score=measured.length>=3?Math.round(measured.reduce((sum,c)=>sum+c.score,0)/measured.length):null;
+  return {score,letter:score===null?null:score>=90?'A':score>=80?'B':score>=70?'C':score>=60?'D':'F',measured:measured.length,total:categories.length,
+    method:'Equal average of available category scores, rounded before grading. Requires at least three graded categories. Unavailable categories are excluded; partial coverage is provisional. A local diagnostic, not a search-engine score.'};
+}
+if(typeof module!=='undefined') module.exports={gradeReport,overallGrade};
