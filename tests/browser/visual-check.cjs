@@ -24,7 +24,7 @@ await page.screenshot({path:require('node:path').join(artifacts,'site-lens-previ
 await page.screenshot({path:require('node:path').join(artifacts,'site-lens-report-card.png')});
 if(await page.locator('.frog-logo').evaluate(img=>!img.complete || img.naturalWidth===0))throw Error('Frog logo failed to load');
 if(await page.locator('h1').innerText()!=='SEO/GEO Frog')throw Error('Brand name mismatch');
-if(await page.locator('.grade-card').count()!==5)throw Error('Missing grade cards');
+if(await page.locator('.grade-card').count()!==6)throw Error('Missing grade cards');
 if(!await page.locator('#prompt').inputValue())throw Error('Prompt empty');
 await page.locator('#tab-previews').click();
 for(const platform of ['google','bing','facebook','linkedin','x']) {
@@ -50,6 +50,8 @@ for(const width of [320,390,600]) {
 }
 await page.setViewportSize({width:390,height:900});
 await page.locator('#tab-seo').click();
+await page.locator('.aeo-tips summary').click();
+if(!await page.locator('.aeo-tips li').first().isVisible())throw Error('AEO tips missing');
 await page.locator('#status').selectOption('actionable');
 await page.locator('.check summary').first().click();
 if(!await page.locator('.check[open] .learn-link').first().isVisible())throw Error('Finding article link missing');

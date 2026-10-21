@@ -1,6 +1,6 @@
 # SEO/GEO Frog 🐸
 
-An open-source Chrome extension for local SEO, generative engine optimization (GEO), speed, and JavaScript diagnostics. Get A–F category grades, useful evidence, search and social previews, and prompts you can paste into Claude or another coding tool to fix findings.
+An open-source Chrome extension for local SEO, generative engine optimization (GEO), answer engine optimization (AEO), speed, and JavaScript diagnostics. Get A–F category grades, useful evidence, search and social previews, and prompts you can paste into Claude or another coding tool to fix findings.
 
 **Pull requests are welcome!** Help improve checks, fix bugs, refine previews, or make the interface easier to use. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started, or [open an issue](https://github.com/flyptkarsh/seo-geo-frog/issues) with an idea.
 
@@ -10,6 +10,7 @@ An open-source Chrome extension for local SEO, generative engine optimization (G
 
 - **SEO and structured data:** inspect titles, meta descriptions, canonical and robots tags, headings, images, links, and JSON-LD syntax and basic fields.
 - **GEO signals:** review content structure, attribution, and dates where relevant.
+- **AEO checks and tips:** Review unanswered question headings, snippet restrictions, and incomplete optional Q&A markup. Get practical advice on direct answers, definitions, sources, and useful structure, with an AEO grade and fix prompts. These local heuristics do not predict AI citations.
 - **Report cards:** A–F category grades with a disclosed rubric and prioritized improvement bullets.
 - **Previews:** dedicated icon tabs for approximate Google, Bing, Facebook, LinkedIn, and X cards.
 - **Speed:** available navigation timings, resource sizes, blocking-script candidates, and image sizing.
@@ -49,7 +50,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Both suites run in GitHub Actions on pushes and pull requests. The 27 automated tests cover audit data, grades, prompt scope and clipboard fallback, export versioning, unsafe preview URLs, optional images, documentation links, navigation races, and retry recovery. Browser checks exercise real audit functions on a controlled page, confirm native side-panel opening, and check all tabs at 320, 390, and 600 pixel widths.
+Both suites run in GitHub Actions on pushes and pull requests. The automated tests cover audit data, grades, prompt scope and clipboard fallback, export versioning, unsafe preview URLs, optional images, documentation links, navigation races, and retry recovery. Browser checks exercise real audit functions on a controlled page, confirm native side-panel opening, and check all tabs at 320, 390, and 600 pixel widths.
 
 The browser audit fixture bridges Chrome APIs to a controlled test page; it does not simulate every real site's behavior or fully automate toolbar permission grants. Tests use jsdom and mocked Chrome APIs. Also load the extension in Chrome to verify actual side-panel behavior, navigation, permissions, previews, and reaudit.
 

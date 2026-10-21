@@ -14,7 +14,7 @@ function scheduleAudit() {
   clearTimeout(autoAuditTimer);
   autoAuditTimer=setTimeout(()=>run(),700);
 }
-const sectionGroups={seo:['Metadata','Crawl signals','Social','Content','Structured data','GEO signals'],speed:['Speed'],javascript:['JavaScript']};
+const sectionGroups={seo:['Metadata','Crawl signals','Social','Content','Structured data','GEO signals','AEO signals'],speed:['Speed'],javascript:['JavaScript']};
 function activateSection(key, focus=false) {
   activeSection=key;
   for(const tab of document.querySelectorAll('.tabbar [role="tab"]')) {
@@ -125,7 +125,7 @@ function render() {
   for(const g of report.grades.categories) {
     const card=el('button',undefined,'grade-card grade-card-'+(g.letter || 'none'));
     card.type='button';
-    card.addEventListener('click',()=>activateSection(({schema:'seo',geo:'seo'}[g.key] || g.key),true));
+    card.addEventListener('click',()=>activateSection(({schema:'seo',geo:'seo',aeo:'seo'}[g.key] || g.key),true));
     const letter=el('strong',g.letter || '—','grade-letter grade-'+(g.letter || 'none'));
     letter.setAttribute('aria-label',g.letter?`Grade ${g.letter}`:'Insufficient data');
     card.append(el('span',({schema:'Schema',geo:'GEO',javascript:'JS'}[g.key] || g.name),'grade-name'),letter,el('span',g.score===null?'Insufficient data':`${g.score} / 100`,'grade-score'),el('span',`${g.coverage}% checked`,'grade-coverage'));

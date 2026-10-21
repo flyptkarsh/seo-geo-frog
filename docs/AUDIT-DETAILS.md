@@ -129,3 +129,14 @@ Tests cover audit edge cases, popup interactions, runtime monitoring lifecycle, 
 - [Chrome Side Panel API](https://developer.chrome.com/docs/extensions/reference/api/sidePanel)
 
 Social previews use local Simple Icons brand SVGs (CC0) for Facebook, LinkedIn and X. Cards approximate the rendered metadata; platform caches and crawler rendering may differ. Clicking Load image requests the page-specified image with no referrer. No audit is uploaded.
+
+
+## AEO checks (version 4.4)
+
+Answer engine optimization checks inspect the current rendered page locally. The AEO card weights snippet restrictions (2), primary heading (1), heading hierarchy (1), answers following question headings (2), and Q&A markup completeness (2). Optional absent question headings and Q&A markup are ungraded; they do not lose points. Existing coverage rules apply.
+
+Question detection uses terminal question marks (including full-width marks), excludes hidden headings, and looks for an answer paragraph, list item, definition, table cell, or quote before the next heading. Other languages, accordion layouts, and custom components may need manual review. Presence does not establish answer relevance. Q&A validation checks inline Question/Answer fields, not reference resolution, rich-result eligibility, or factual agreement with visible content.
+
+Snippet checks inspect robots/googlebot meta restrictions and data-nosnippet within main content. They cannot establish actual crawler access or indexing. Preserve intentional restrictions. Tips cover direct answers, definitions, sources, authorship, and accurate dates. There is no required answer length, FAQ markup, or special AI file. Grades never predict citations, ranking, or answer-engine inclusion.
+
+Sources: [Google AI features](https://developers.google.com/search/docs/appearance/ai-features) and [helpful content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).

@@ -70,9 +70,57 @@ function auditPage() {
   const external = links.filter(e => {try {return /^https?:$/.test(new URL(e.href).protocol) && new URL(e.href).hostname !== location.hostname;}catch{return false;}});
   add('GEO signals', 'info', 'References and outbound links', `${external.length} external HTTP(S) links found. Their credibility and relevance were not assessed.`, 'Support factual claims with relevant primary sources where useful. Link count is not a quality score.');
   add('GEO signals', 'info', 'Content structure', `${all('main').length} main region(s), ${all('article').length} article(s), ${all('ul,ol').length} lists, ${all('table').length} tables.`, 'Make information easy to understand and quote. Semantic elements do not guarantee AI citations.');
+  // AEO checks inspect local signals, never predict answer-engine selection.
+  const readable = e => {
+    if (!e || e.closest('script,style,template,[hidden],[aria-hidden="true"]')) return '';
+    for (let parent=e; parent; parent=parent.parentElement) {
+      const style=getComputedStyle(parent);
+      if (style.display==='none' || style.visibility==='hidden') return '';
+    }
+    return clean(e.innerText ?? e.textContent);
+  };
+  const questionHeadings = [...(main?.querySelectorAll('h1,h2,h3,h4,h5,h6') || [])].filter(e=>/[?？]$/.test(readable(e)));
+  const unanswered = questionHeadings.filter(heading=>{
+    // Walk in document order so wrapped answer paragraphs are supported; stop at the next heading.
+    const walker=document.createTreeWalker(main,NodeFilter.SHOW_ELEMENT);
+    walker.currentNode=heading;
+    let next;
+    while ((next=walker.nextNode())) {
+      if (/^H[1-6]$/.test(next.tagName)) break;
+      if (next.matches('p,li,dd,td,blockquote') && readable(next)) return false;
+    }
+    return true;
+  });
+  add('AEO signals', questionHeadings.length ? unanswered.length ? 'review' : 'pass' : 'info', 'Answers after question headings',
+    questionHeadings.length ? `${unanswered.length} of ${questionHeadings.length} question headings have no detected answer paragraph, list item, definition, table cell, or quote before the next heading.\n${unanswered.slice(0,8).map(readable).join('\n')}` : 'No headings ending in a question mark found. Question headings are optional; other languages and layouts may not be recognized.',
+    'Where a heading asks a question, follow it with a direct, useful answer, then supporting detail. Verify relevance manually: text presence does not prove it answers the question. Do not add artificial FAQs to pages that do not need them.');
+  const snippetMeta=meta.filter(m=>/^(robots|googlebot)$/i.test(m.name) && /(?:\b(?:noindex|none|nosnippet)\b|\bmax-snippet\s*:\s*0(?:\s|,|;|$))/i.test(m.content));
+  const excluded=[...(main?.querySelectorAll('[data-nosnippet]') || [])];
+  if(main?.hasAttribute('data-nosnippet')) excluded.push(main);
+  add('AEO signals',snippetMeta.length || excluded.length ? 'review' : 'pass','Answer snippet restrictions',
+    `${snippetMeta.map(m=>`${m.name}: ${m.content}`).join(' | ') || 'No restricting Google/general robots meta found.'} ${excluded.length} data-nosnippet region(s) in main content. HTTP headers and robots.txt are not checked.`,
+    'Review whether restrictions intentionally limit indexing or snippet use. Preserve privacy and publishing choices. Passing this local check does not establish crawler access or AI visibility.');
+  const typed=(node,type)=>node && typeof node==='object' && [node['@type']].flat().some(t=>new RegExp('(^|/)'+type+'$').test(String(t)));
+  const qaPages=nodes.filter(n=>typed(n,'FAQPage') || typed(n,'QAPage'));
+  const qaProblems=[];
+  qaPages.forEach((page,i)=>{
+    const questions=[page.mainEntity].flat().filter(Boolean);
+    if(!questions.length) qaProblems.push(`Q&A entity ${i+1}: missing mainEntity.`);
+    questions.forEach(q=>{
+      const answers=[q.acceptedAnswer,q.suggestedAnswer].flat().filter(Boolean);
+      const hasText=v=>typeof v==='string' && clean(v);
+      if(!typed(q,'Question') || !hasText(q.name) || !answers.some(a=>typed(a,'Answer') && hasText(a.text))) qaProblems.push(`Q&A entity ${i+1}: incomplete Question name or Answer text (references are not resolved).`);
+    });
+  });
+  add('AEO signals',qaPages.length ? qaProblems.length ? 'review' : 'pass' : 'info','Q&A markup completeness',
+    qaPages.length ? qaProblems.join('\n') || `${qaPages.length} Q&A entities contain named questions and answer text. Visible-content accuracy still needs manual review.` : 'No FAQPage or QAPage markup found. These are optional and are not required for AEO.',
+    'If Q&A markup is appropriate, use truthful Question and Answer entities that match content readers can access. Check references and type-specific rules separately. Never invent questions, answers, authors, or claim rich-result eligibility.');
+  add('AEO signals','info','AEO writing tips',
+    `${questionHeadings.length} question headings; ${main?.querySelectorAll('dl').length || 0} definition lists. Structure alone does not establish answer quality.`,
+    'Answer the reader’s main question early. Define unfamiliar terms on first use. Use numbered steps for procedures and tables for meaningful comparisons. Support factual claims with primary sources and show relevant authorship. Keep dates accurate where freshness matters. No fixed answer length or special AI schema is required; manually check accuracy and usefulness.');
   add('Crawl signals', location.protocol === 'https:' ? 'pass' : 'review', 'HTTPS', location.protocol, 'Serve public pages over HTTPS.');
   const hreflang = all('link[rel~="alternate"][hreflang]').map(e=>({language:e.hreflang,url:e.href}));
   add('Metadata','info','Language alternatives', hreflang.length ? hreflang.map(e=>`${e.language}: ${e.url}`).join('\n') : 'No hreflang links found (optional for single-language pages).', 'For localized sites, verify valid language codes and reciprocal links separately.');
-  return {version:1, url:location.href, title, auditedAt:new Date().toISOString(), checks, meta, headings, jsonld, types, canonical, stats:{words, images:images.length, links:links.length, externalLinks:external.length}, limitations:['Rendered top-level DOM only; page scripts may add or change content after this snapshot.','No site crawl, HTTP status/header checks, robots.txt evaluation, sitemap checks, link destination checks, field Core Web Vitals, or search index verification.','JSON-LD is parsed locally; schema.org vocabulary, rich-result requirements, and visible-content consistency need separate validation.','GEO observations are heuristics, not predictions of rankings, citations, or AI inclusion. No special AI schema or llms.txt is required by this audit.']};
+  return {version:1, url:location.href, title, auditedAt:new Date().toISOString(), checks, meta, headings, jsonld, types, canonical, stats:{words, images:images.length, links:links.length, externalLinks:external.length}, limitations:['Rendered top-level DOM only; page scripts may add or change content after this snapshot.','No site crawl, HTTP status/header checks, robots.txt evaluation, sitemap checks, link destination checks, field Core Web Vitals, or search index verification.','JSON-LD is parsed locally; schema.org vocabulary, rich-result requirements, and visible-content consistency need separate validation.','AEO and GEO observations are heuristics, not predictions of rankings, citations, or AI inclusion. No special AI schema or llms.txt is required by this audit.']};
 }
 if (typeof module !== 'undefined') module.exports = {auditPage};

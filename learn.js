@@ -33,6 +33,7 @@ const learningArticles = {
  prompts:['Using evidence-based fix prompts','Project guide','https://github.com/flyptkarsh/seo-geo-frog/blob/main/docs/AUDIT-DETAILS.md#finding-level-fix-prompts-version-32']
 };
 const learningCheckKeys = {
+ 'Answers after question headings':['content','headings'],'Answer snippet restrictions':['robots','geo'],'Q&A markup completeness':['schema','geo'],'AEO writing tips':['content','geo'],
  'Page title':['title'],'Title length heuristic':['title'],'Meta description':['description'],'Description length heuristic':['description'],
  'Canonical URL':['canonical'],'Robots meta directives':['robots'],'Document language':['language'],'Viewport':['viewport'],
  'og:title':['og'],'og:description':['og'],'og:image':['og'],'og:url':['og'],'twitter:card':['meta'],

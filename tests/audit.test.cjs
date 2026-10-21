@@ -54,7 +54,7 @@ test('popup renders untrusted page text safely and filters results',async()=>{
  assert.equal(w.document.getElementById('results').hidden,false);
  assert.ok(w.document.querySelectorAll('.check').length>0);
  assert.equal(w.document.querySelectorAll('.check .badge.pass').length,0);
- assert.equal(w.document.querySelectorAll('.grade-card').length,5);
+ assert.equal(w.document.querySelectorAll('.grade-card').length,6);
  w.document.getElementById('tab-speed').click();
  assert.equal(w.document.getElementById('panel-speed').hidden,false);
  assert.equal(w.document.getElementById('panel-overview').hidden,true);
@@ -272,4 +272,31 @@ test('Reaudit refreshes content; navigation waits, SPA changes debounce, missing
  assert.equal(w.document.getElementById('rerun').disabled,false);
  url='https://another.test/';w.document.getElementById('rerun').click();await pause(40);assert.equal(calls,5);
  w.close();
+});
+
+test('AEO detects missing answers, accepts wrapped answers and ignores hidden questions',()=>{
+ const r=audit('<main><h1>Guide</h1><h2>What is AEO?</h2><div><p>It helps readers find useful answers.</p></div><h2>Why use it?</h2><h2>Next section</h2><div hidden><h2>Hidden?</h2></div><h2 style="display:none">Also hidden?</h2></main>');
+ const c=r.checks.find(c=>c.title==='Answers after question headings');
+ assert.equal(c.status,'review');assert.match(c.evidence,/1 of 2/);assert.match(c.evidence,/Why use it/);
+});
+test('AEO reviews explicit snippet controls without treating normal limits as blocks',()=>{
+ for(const value of ['nosnippet','noindex','none','max-snippet: 0']) {
+  const r=audit(`<meta name="googlebot" content="${value}"><main><h1>Guide</h1></main>`);
+  assert.equal(r.checks.find(c=>c.title==='Answer snippet restrictions').status,'review');
+ }
+ assert.equal(audit('<meta name="robots" content="max-snippet:100">').checks.find(c=>c.title==='Answer snippet restrictions').status,'pass');
+ assert.equal(audit('<main data-nosnippet>Private excerpt</main>').checks.find(c=>c.title==='Answer snippet restrictions').status,'review');
+});
+test('AEO optional markup is ungraded when absent and incomplete answers get a fix prompt',()=>{
+ const {gradeReport}=require('../grades.js');const {buildFixPrompt}=require('../prompt.js');
+ const r=audit('<main><h1>Home</h1><p>Welcome.</p></main>');
+ assert.equal(r.checks.find(c=>c.title==='Q&A markup completeness').status,'info');
+ assert.equal(gradeReport(r).categories.find(c=>c.key==='aeo').score,100);
+ for(const answer of [null,{'@type':'Answer',text:''},{'@type':'Answer',text:'A useful answer.'}]) {
+  const markup={'@context':'https://schema.org','@type':'FAQPage',mainEntity:[{'@type':'Question',name:'What is this?',acceptedAnswer:answer}]};
+  const report=audit(`<script type="application/ld+json">${JSON.stringify(markup)}</script>`);
+  const check=report.checks.find(c=>c.title==='Q&A markup completeness');
+  assert.equal(check.status,answer?.text?'pass':'review');
+  if(check.status==='review')assert.match(buildFixPrompt(report,{findings:[check]}),/Q&A markup completeness/);
+ }
 });
