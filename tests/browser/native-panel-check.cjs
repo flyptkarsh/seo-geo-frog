@@ -22,6 +22,20 @@ await page.locator('#native-open-test').click();
 await page.waitForFunction(()=>document.querySelector('#native-open-test').dataset.result);
 const result=await page.locator('#native-open-test').getAttribute('data-result');
 if(result!=='opened')throw Error(result);
+const badgeTab=await page.evaluate(async()=>{
+ const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+ updateIssueBadge(tab.id,[{status:'issue'},{status:'issue'},{status:'review'}]);return tab.id;
+});
+await page.waitForFunction(async id=>(await chrome.action.getBadgeText({tabId:id}))==='2',badgeTab);
+const badge=await worker.evaluate(async tabId=>({text:await chrome.action.getBadgeText({tabId}),color:await chrome.action.getBadgeBackgroundColor({tabId}),title:await chrome.action.getTitle({tabId})}),badgeTab);
+if(badge.text!=='2' || badge.color.join(',')!=='220,38,38,255' || !badge.title.includes('2 serious issues'))throw Error('Native badge failed');
+await page.goto('about:blank');
+for(let attempt=0;attempt<20;attempt++) {
+ if(await worker.evaluate(tabId=>chrome.action.getBadgeText({tabId}),badgeTab)==='')break;
+ await new Promise(resolve=>setTimeout(resolve,50));
+}
+if(await worker.evaluate(tabId=>chrome.action.getBadgeText({tabId}),badgeTab)!=='')throw Error('Navigation left stale badge');
+console.log('Native red badge count, color, tooltip and navigation reset passed.');
 console.log('Native unpacked-extension check passed: service worker loaded, native side panel configured, sidePanel.open succeeded on a real click.');
 } finally{await context.close();}
 })();

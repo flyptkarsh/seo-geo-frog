@@ -15,7 +15,8 @@ async function panel(t,execute) {
  const w=new JSDOM(read('popup.html'),{url:'https://extension.test',runScripts:'outside-only'}).window;
  t.after(()=>w.close());
  const state={tab:{id:1,windowId:1,url:'https://example.com/first'},result:fixture(),calls:0};
- w.chrome={runtime:{getManifest:()=>JSON.parse(read('manifest.json'))},tabs:{query:async()=>[state.tab],onUpdated:{addListener:fn=>state.updated=fn}},scripting:{executeScript:async opts=>{
+ state.badges=[];
+ w.chrome={action:Object.fromEntries(['setBadgeText','setBadgeBackgroundColor','setBadgeTextColor','setTitle'].map(method=>[method,async details=>state.badges.push({method,...details})])),runtime:{getManifest:()=>JSON.parse(read('manifest.json'))},tabs:{query:async()=>[state.tab],onUpdated:{addListener:fn=>state.updated=fn}},scripting:{executeScript:async opts=>{
   if(opts.world==='MAIN')throw Error('Runtime unavailable in fixture');
   state.calls++;return execute?execute(state,opts):[{result:structuredClone(state.result)}];
  }}};
@@ -29,7 +30,9 @@ test('late audit results cannot overwrite the page after navigation',async t=>{
  state.tab.url='https://example.com/new';state.result=fixture('Newest title',state.tab.url);
  $('rerun').click();await tick();
  assert.equal($('page-url').textContent,state.tab.url);
- resolveOld([{result:fixture('Stale title')}]);await tick();
+ const stale=fixture('Stale title');stale.checks.push({status:'issue',title:'Stale issue'});
+ resolveOld([{result:stale}]);await tick();
+ assert.equal(state.badges.filter(b=>b.method==='setBadgeText').at(-1).text,'');
  $('tab-previews').click();
  assert.equal(w.document.querySelector('.search-title').textContent,'Newest title');
  assert.equal($('rerun').disabled,false);
@@ -119,4 +122,26 @@ test('learning links are safe external links and guides follow the selected tab'
  }
  $('tab-speed').click();assert.match($('concept-links').textContent,/Time to first byte/);assert.doesNotMatch($('concept-links').textContent,/Canonical/);
  $('tab-fixes').click();assert.match($('concept-links').textContent,/fix prompts/);
+});
+
+
+test('red badge counts only serious findings, refreshes and clears on navigation or failure',async t=>{
+ const {state,$}=await panel(t);
+ const last=method=>state.badges.filter(b=>b.method===method).at(-1);
+ state.result.checks.push({status:'issue',title:'Test issue',group:'Content',evidence:'Example',advice:'Fix'}, {status:'review',title:'Review',group:'Content',evidence:'Example',advice:'Review'});
+ $('rerun').click();await tick();
+ assert.equal(last('setBadgeText').text,'1');assert.equal(last('setBadgeText').tabId,1);
+ assert.equal(last('setBadgeBackgroundColor').color,'#DC2626');assert.equal(last('setBadgeTextColor').color,'#FFFFFF');
+ assert.match(last('setTitle').title,/1 serious issue in last audit/);
+ state.updated(1,{status:'loading'},{status:'loading'});
+ assert.equal(last('setBadgeText').text,'');
+ state.result.checks=state.result.checks.filter(c=>c.status!=='issue');
+ $('rerun').click();await tick();assert.equal(last('setBadgeText').text,'');
+ state.result=null;$('rerun').click();await tick();assert.equal(last('setBadgeText').text,'');
+});
+test('background clears badges on full and SPA navigation while panel is closed',async()=>{
+ const vm=require('node:vm');let updated;const calls=[];
+ vm.runInNewContext(read('background.js'),{chrome:{action:{onClicked:{addListener:()=>{}},setBadgeText:async d=>calls.push(d),setTitle:async()=>{}},tabs:{onUpdated:{addListener:fn=>updated=fn}}}});
+ updated(3,{status:'loading'});updated(7,{url:'https://example.com/next'});updated(9,{title:'Changed title'});
+ assert.equal(calls.length,2);assert.equal(calls[0].tabId,3);assert.equal(calls[1].tabId,7);assert.ok(calls.every(c=>c.text===''));
 });

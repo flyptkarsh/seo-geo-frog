@@ -1,6 +1,6 @@
 {
   "name": "seo-geo-frog",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "private": true,
   "description": "Local SEO, GEO, speed and JavaScript auditing in a Chrome side panel.",
   "license": "MIT",

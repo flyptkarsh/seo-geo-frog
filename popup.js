@@ -30,9 +30,25 @@ function activateSection(key, focus=false) {
   if(report) renderChecks();
   $('concept-links').replaceChildren(...articlesForSection(key).map(articleLink));
 }
+// Badge counts confirmed issue findings, never contextual review suggestions.
+function updateIssueBadge(tabId, checks = null) {
+  if (!Number.isInteger(tabId) || !chrome.action) return;
+  const count=checks?.filter(c=>c.status==='issue').length || 0;
+  const title=checks ? `SEO/GEO Frog · ${count} serious issue${count===1?'':'s'} in last audit` : 'SEO/GEO Frog · Audit this page';
+  // Dispatch together without awaiting so navigation can immediately clear stale state.
+  for(const [method,details] of [
+    ['setBadgeBackgroundColor',{color:'#DC2626'}],
+    ['setBadgeTextColor',{color:'#FFFFFF'}],
+    ['setBadgeText',{text:count ? count>999?'999+':String(count) : ''}],
+    ['setTitle',{title}]
+  ]) {
+    try { chrome.action[method]?.({tabId,...details})?.catch(()=>{}); } catch {}
+  }
+}
 function invalidateReport(message) {
   clearTimeout(autoAuditTimer);
   generation++;auditRunning=false;report=null;
+  updateIssueBadge(auditedTabId);
   $('results').hidden=true;$('message').hidden=false;
   $('message').textContent=message;
   $('page-url').textContent='Page changed · audit needed';$('rerun').disabled=false;
@@ -177,7 +193,7 @@ async function run(monitorAction = false) {
   try {
     const [tab] = await activeTabQuery();
     if(current!==generation) return;
-    if (tab?.id) {auditedTabId=tab.id;panelWindowId=tab.windowId;}
+    if (tab?.id) {auditedTabId=tab.id;panelWindowId=tab.windowId;updateIssueBadge(tab.id);}
     if (!tab?.url) throw new Error('Click the frog toolbar icon to allow auditing this site. Automatic reauditing resumes after access is granted.');
     if (!tab?.id || !/^https?:\/\//i.test(tab.url || '')) throw new Error('Open a regular HTTP or HTTPS website, then click SEO/GEO Frog. Chrome internal pages, the Chrome Web Store, PDFs, and other protected pages cannot be audited.');
     auditedTabId=tab.id;panelWindowId=tab.windowId;
@@ -205,6 +221,7 @@ async function run(monitorAction = false) {
     report.limitations=report.limitations.filter(l=>!l.includes('field Core Web Vitals'));
     report.limitations.push('Speed metrics reflect one local navigation and available browser buffers, not field Core Web Vitals. Cross-origin restrictions can hide sizes/statuses; zero bytes does not prove zero cost.', 'Runtime errors are captured only after monitoring starts in the top-level page. Earlier console history, console.error calls, caught errors, and cross-origin iframe errors are not captured. Monitoring resets on navigation.', 'No site crawl, HTTP header inspection, robots.txt, sitemap, index verification, or link-destination health checks are performed.');
     render();
+    updateIssueBadge(tab.id,report.checks);
     $('message').hidden=true;
     $('results').hidden=false;
   } catch(error) {
