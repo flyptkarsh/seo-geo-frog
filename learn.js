@@ -1,5 +1,10 @@
 // Curated documentation only. URLs never come from the audited page.
 const learningArticles = {
+ semantics:['Semantic page regions','W3C WAI','https://www.w3.org/WAI/tutorials/page-structure/regions/'],
+ landmarks:['Landmark region practices','W3C WAI','https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/'],
+ buttons:['Button pattern and keyboard behavior','W3C WAI','https://www.w3.org/WAI/ARIA/apg/patterns/button/'],
+ sitemap:['Build and submit a sitemap','Google Search Central','https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap'],
+ llms:['llms.txt proposal','llmstxt.org','https://llmstxt.org/'],
  title:['Titles in search results','Google Search Central','https://developers.google.com/search/docs/appearance/title-link'],
  description:['Meta descriptions and snippets','Google Search Central','https://developers.google.com/search/docs/appearance/snippet'],
  canonical:['Canonical URLs','Google Search Central','https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls'],
@@ -12,6 +17,9 @@ const learningArticles = {
  alt:['Image alternative text','W3C WAI','https://www.w3.org/WAI/tutorials/images/'],
  links:['Link text and crawlable links','Google Search Central','https://developers.google.com/search/docs/crawling-indexing/links-crawlable'],
  content:['Helpful content and attribution','Google Search Central','https://developers.google.com/search/docs/fundamentals/creating-helpful-content'],
+ qa:['Google QAPage requirements','Google Search Central','https://developers.google.com/search/docs/appearance/structured-data/qapage'],
+ faq:['FAQPage vocabulary','Schema.org','https://schema.org/FAQPage'],
+ aiGuide:['Generative AI search best practices','Google Search Central','https://developers.google.com/search/docs/fundamentals/ai-optimization-guide'],
  schema:['Structured data and JSON-LD','Google Search Central','https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data'],
  context:['JSON-LD contexts','W3C','https://www.w3.org/TR/json-ld11/#the-context'],
  article:['Article structured data','Google Search Central','https://developers.google.com/search/docs/appearance/structured-data/article'],
@@ -33,7 +41,9 @@ const learningArticles = {
  prompts:['Using evidence-based fix prompts','Project guide','https://github.com/flyptkarsh/seo-geo-frog/blob/main/docs/AUDIT-DETAILS.md#finding-level-fix-prompts-version-32']
 };
 const learningCheckKeys = {
- 'Answers after question headings':['content','headings'],'Answer snippet restrictions':['robots','geo'],'Q&A markup completeness':['schema','geo'],'AEO writing tips':['content','geo'],
+ 'Semantic main landmark':['semantics','landmarks'], 'Semantic navigation labels':['landmarks'], 'Native interactive elements':['buttons'], 'Semantic HTML inventory':['semantics'],
+ 'robots.txt availability':['robots'], 'Sitemap discovery':['sitemap'], 'llms.txt availability':['llms','geo'],
+ 'Answers after question headings':['content','headings'],'Answer snippet restrictions':['robots','geo'],'Q&A markup completeness':['qa','faq','schema'],'AEO writing tips':['content','aiGuide','geo'],
  'Page title':['title'],'Title length heuristic':['title'],'Meta description':['description'],'Description length heuristic':['description'],
  'Canonical URL':['canonical'],'Robots meta directives':['robots'],'Document language':['language'],'Viewport':['viewport'],
  'og:title':['og'],'og:description':['og'],'og:image':['og'],'og:url':['og'],'twitter:card':['meta'],
@@ -51,7 +61,7 @@ function articlesForCheck(check) {
  return (learningCheckKeys[check.title] || (/^Article details \d+$/.test(check.title)?['article']:[])).map(key=>learningArticles[key]);
 }
 function articlesForSection(section) {
- const keys={overview:['grades','geo','schema','ttfb','errors'],seo:['title','description','canonical','robots','headings','alt','schema','context','article','geo','content','dates','language','hreflang','viewport','links','https','meta','og'],previews:['title','description','og','meta'],speed:['ttfb','fcp','lcp','cls','resources','network','images'],javascript:['errors','tasks','scripts','resources','network'],fixes:['prompts']}[section] || [];
+ const keys={overview:['grades','geo','schema','ttfb','errors'],seo:['title','description','canonical','robots','headings','alt','schema','context','article','geo','content','dates','language','hreflang','viewport','links','https','meta','og'],previews:['title','description','og','meta'],speed:['ttfb','fcp','lcp','cls','resources','network','images'],javascript:['errors','tasks','scripts','resources','network'],explore:['meta','scripts','resources'],fixes:['prompts']}[section] || [];
  return keys.map(key=>learningArticles[key]);
 }
 if(typeof module!=='undefined')module.exports={learningArticles,learningCheckKeys,articlesForCheck,articlesForSection};

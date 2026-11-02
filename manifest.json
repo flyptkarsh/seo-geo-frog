@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SEO/GEO Frog",
-  "version": "4.4.2",
-  "description": "Local SEO, GEO, page-speed and JavaScript diagnostics with evidence-based Claude fix prompts.",
+  "version": "4.5.0",
+  "description": "Inspect SEO, GEO, AEO, semantic HTML, meta tags, JS libraries, robots.txt, sitemaps and llms.txt in a local Chrome side panel.",
   "permissions": [
     "activeTab",
     "scripting",

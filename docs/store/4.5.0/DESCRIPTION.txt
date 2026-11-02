@@ -1,0 +1,33 @@
+SEO/GEO Frog helps you inspect the current page in a Chrome side panel, understand what needs attention, and prepare evidence-based fixes for your coding tool.
+
+NEW IN 4.5.0
+• Explore rendered meta tags, detected JavaScript libraries, and script loading details with search and filters.
+• Check public robots.txt, sitemap locations, and root llms.txt.
+• Review semantic HTML landmarks, navigation labels, and native interactive elements.
+• Get clearer AEO recommendations that preserve publisher controls and avoid forced FAQs, word quotas, or invented answers.
+
+INSPECT THE PAGE
+Review titles, descriptions, canonicals, robots meta directives, headings, image alternatives, link labels, JSON-LD, and social tags. Expand findings to see evidence and practical next steps.
+
+EXPLORE TAGS AND SCRIPTS
+Search every rendered meta tag and expand its attributes. Inspect script URLs, types, async/defer settings, and inline-script sizes. Detected libraries include their URL or DOM evidence. Library detection is heuristic: bundled dependencies, exact versions, or execution may not be identifiable.
+
+CHECK SITE FILES AND SEMANTIC HTML
+Retrieve robots.txt and llms.txt at the site root and check up to three sitemap candidates from robots.txt and common root paths. Distinguish retrieved files from missing, blocked, redirected, or oversized responses. llms.txt is optional and does not guarantee AI inclusion.
+Review main landmarks, navigation labels, and detectable custom click controls. Native HTML and valid ARIA equivalents are supported. These structural checks are not a complete accessibility audit.
+
+SEO, GEO AND AEO
+Inspect local signals relevant to search and clear, useful answers. Get contextual guidance on answer structure, sources, truthful Q&A markup, and snippet controls. Grades are local diagnostic heuristics, not predictions of ranking or AI citations. No special AI schema is required.
+
+PREVIEW AND DIAGNOSE
+See approximate Google, Bing, Facebook, LinkedIn, and X previews. Inspect local performance observations and capture new JavaScript errors after monitoring starts. These are not field Core Web Vitals or Lighthouse scores.
+
+TURN EVIDENCE INTO FIXES
+Copy an editable fix prompt for Claude, Codex, Cursor, or another coding tool. Scope it to review items, issues, or an individual finding. Export your audit as JSON.
+
+PRIVACY AND SCOPE
+Analysis stays in your browser. No account, developer analytics, remote AI call, or automatic audit upload. Public site-file requests go only to the audited origin without credentials or a referrer; redirects and other origins are not followed. Files have a 4-second request timeout and 256 KiB read limit. Social images contact their hosts only when you choose Load image. Prompts and reports may contain page data: review them before sharing.
+
+Click the toolbar frog to grant access to the current site. Reaudit to refresh after interactions. The extension inspects the rendered top-level page; it does not crawl a whole site, fully validate structured data or sitemap URLs, evaluate complete robots policies, or verify search indexing. Protected Chrome pages cannot be audited.
+
+Open source: https://github.com/flyptkarsh/seo-geo-frog
