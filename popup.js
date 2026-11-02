@@ -181,6 +181,19 @@ function render() {
   if (!report.jsonld.length) $('jsonld').textContent='No JSON-LD found.';
   $('limits').replaceChildren(...report.limitations.map(l=>el('li',l)));
   $('timestamp').textContent=`Snapshot: ${new Date(report.auditedAt).toLocaleString()} · Auto-reaudit on page navigation · Reaudit to refresh interactions.`;
+  for(const [id,titles] of [['site-files-summary',['robots.txt availability','Sitemap discovery','llms.txt availability']],['semantics-summary',['Semantic main landmark','Semantic navigation labels','Native interactive elements','Semantic HTML inventory']]]) {
+    const rows=report.checks.filter(check=>titles.includes(check.title));
+    $(id).replaceChildren();
+    for(const check of rows) {
+      const detail=el('details',undefined,'inventory-row');
+      const file=check.title==='robots.txt availability'?report.siteFiles?.robots:check.title==='llms.txt availability'?report.siteFiles?.llms:null;
+      const state=file ? file.state : ({pass:'Detected',review:'Review',info:'Observation'}[check.status] || check.status);
+      detail.append(el('summary',`${check.title} · ${state}`),el('pre',check.evidence),el('p',check.advice,'muted'));
+      $(id).append(detail);
+    }
+    if(!rows.length) $(id).textContent='No results available. Reaudit to refresh.';
+  }
+  renderExplorer();
   activateSection(activeSection);
 }
 async function run(monitorAction = false) {
@@ -218,10 +231,16 @@ async function run(monitorAction = false) {
     const [latest]=await activeTabQuery();
     if(current!==generation) return;
     if(latest?.id!==tab.id || (latest.url && latest.url!==report.url)) {invalidateReport('The page changed during the audit. Click the frog toolbar icon on the page you want to inspect.');return;}
+    if(typeof checkSiteFiles==='function') {
+      const files=await checkSiteFiles(report.url);
+      if(current!==generation) return;
+      report.siteFiles=files.files;
+      report.checks.push(...files.checks);
+    }
     report.version=4;
     report.tool={name:'SEO/GEO Frog',version:chrome.runtime?.getManifest?.().version || 'development'};
     report.limitations=report.limitations.filter(l=>!l.includes('field Core Web Vitals'));
-    report.limitations.push('Speed metrics reflect one local navigation and available browser buffers, not field Core Web Vitals. Cross-origin restrictions can hide sizes/statuses; zero bytes does not prove zero cost.', 'Runtime errors are captured only after monitoring starts in the top-level page. Earlier console history, console.error calls, caught errors, and cross-origin iframe errors are not captured. Monitoring resets on navigation.', 'No site crawl, HTTP header inspection, robots.txt, sitemap, index verification, or link-destination health checks are performed.');
+    report.limitations.push('Speed metrics reflect one local navigation and available browser buffers, not field Core Web Vitals. Cross-origin restrictions can hide sizes/statuses; zero bytes does not prove zero cost.', 'Runtime errors are captured only after monitoring starts in the top-level page. Earlier console history, console.error calls, caught errors, and cross-origin iframe errors are not captured. Monitoring resets on navigation.', 'Public site-file checks use credential-free requests on the audited origin, a 4-second timeout and a 256 KiB file limit. Redirects and other origins are not followed. No full site crawl, robots policy evaluation, sitemap URL validation, HTTP indexing-header inspection, or index verification is performed.');
     render();
     updateGradeBadge(tab.id,report.grades.overall);
     $('message').hidden=true;
@@ -345,3 +364,38 @@ for(const button of document.querySelectorAll('[data-social]')) {
     if(next!==null){event.preventDefault();tabs[next].click();tabs[next].focus();}
   });
 }
+
+function renderExplorer() {
+  const inventory = report?.inventory;
+  const host = $('explore-results');
+  host.replaceChildren();
+  if (!inventory) { $('explore-count').textContent = 'Inventory unavailable. Reaudit this page.'; return; }
+  const query = $('explore-search').value.trim().toLowerCase();
+  const kind = $('explore-kind').value;
+  let total = 0;
+  for (const [key, title] of [['tags', 'Meta tags'], ['libraries', 'Detected libraries'], ['scripts', 'Scripts']]) {
+    if (kind !== 'all' && kind !== key) continue;
+    const all = inventory[key] || [];
+    const rows = all.filter(row => JSON.stringify(row).toLowerCase().includes(query));
+    total += rows.length;
+    const section = el('section', undefined, 'inventory-section');
+    section.append(el('h3', `${title} · ${rows.length} / ${all.length}`));
+    if (!rows.length) section.append(el('p', query ? 'No matches.' : key === 'libraries' ? 'No supported library signatures found. Libraries may still be present in bundles.' : 'None found.', 'muted'));
+    for (const row of rows) {
+      const detail = el('details', undefined, 'inventory-row');
+      if (key === 'tags') {
+        const a = row.attributes;
+        detail.append(el('summary', `${a.name || a.property || a['http-equiv'] || (a.charset !== undefined ? 'charset' : '(unnamed)')} · ${a.content ?? a.charset ?? '(no content)'}`), el('pre', row.html));
+      } else if (key === 'libraries') {
+        detail.append(el('summary', row.name), el('p', row.signal, 'muted'), el('pre', row.evidence.join('\n')));
+      } else {
+        detail.append(el('summary', `${row.index}. ${row.src || 'Inline script'} · ${row.type}`), el('pre', JSON.stringify({source: row.src || 'Inline', type: row.type, async: row.async, defer: row.defer, inlineCharacters: row.characters, attributes: row.attributes}, null, 2)));
+      }
+      section.append(detail);
+    }
+    host.append(section);
+  }
+  $('explore-count').textContent = `${total} matching items`;
+}
+$('explore-search').addEventListener('input', renderExplorer);
+$('explore-kind').addEventListener('change', renderExplorer);

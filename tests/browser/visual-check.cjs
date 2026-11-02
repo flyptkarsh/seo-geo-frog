@@ -7,7 +7,7 @@ const path=require('path');
 (async()=>{
 const browser=await chromium.launch({channel:'chromium',headless:true});
 const page=await browser.newPage({viewport:{width:390,height:800},deviceScaleFactor:2});
-await page.route('https://demo.test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><title>Studio North — Design for the next chapter</title><meta name="description" content="Independent design studio building memorable digital experiences."><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="canonical" href="https://demo.test/"></head><body><main><h1>Design for the next chapter.</h1><p>A considered approach to building brands and digital products.</p><h3>Selected work</h3><img src="/broken.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Studio North"}</script></main></body></html>'}));
+await page.route('https://demo.test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="en"><head><title>Studio North — Design for the next chapter</title><meta name="description" content="Independent design studio building memorable digital experiences."><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="canonical" href="https://demo.test/"></head><body><main><h1>Design for the next chapter.</h1><p>A considered approach to building brands and digital products.</p><h3>Selected work</h3><img src="/broken.png"><script id="__NEXT_DATA__" type="application/json">{}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Studio North"}</script></main></body></html>'}));
 await page.goto('https://demo.test/');
 await page.addScriptTag({content:fs.readFileSync('audit.js','utf8')});
 await page.addScriptTag({content:fs.readFileSync('diagnostics.js','utf8')});
@@ -18,6 +18,9 @@ const d=await page.evaluate(()=>collectDiagnostics(true));
 if(d.errors.length!==1) throw Error('Runtime monitoring failed in Chrome');
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.addInitScript(({report,d})=>{window.chrome={tabs:{query:async()=>[{id:1,url:report.url}]},scripting:{executeScript:async options=>[{result:options.world==='MAIN'?d:structuredClone(report)}]}};},{report,d});
+await page.route('https://demo.test/robots.txt',route=>route.fulfill({contentType:'text/plain',headers:{'access-control-allow-origin':'*'},body:'User-agent: *\nSitemap: https://demo.test/custom-map.xml'}));
+await page.route('https://demo.test/llms.txt',route=>route.fulfill({contentType:'text/plain',headers:{'access-control-allow-origin':'*'},body:'# Demo documentation'}));
+await page.route('https://demo.test/custom-map.xml',route=>route.fulfill({contentType:'application/xml',headers:{'access-control-allow-origin':'*'},body:'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://demo.test/</loc></url></urlset>'}));
 await page.goto('file://'+path.resolve('popup.html'));
 await page.locator('#results').waitFor({state:'visible'});
 await page.screenshot({path:require('node:path').join(artifacts,'site-lens-preview.png'),fullPage:true});
@@ -26,12 +29,31 @@ if(await page.locator('.frog-logo').evaluate(img=>!img.complete || img.naturalWi
 if(await page.locator('h1').innerText()!=='SEO/GEO Frog')throw Error('Brand name mismatch');
 if(await page.locator('.grade-card').count()!==6)throw Error('Missing grade cards');
 if(!await page.locator('#prompt').inputValue())throw Error('Prompt empty');
+await page.locator('#tab-seo').click();
+if(!await page.locator('#site-files-summary').textContent().then(text=>text.includes('HTTP 200') && text.includes('Recognized sitemap')))throw Error('Public file checks not rendered');
+await page.locator('#semantics-summary').locator('..').locator('summary').first().click();
+if(!await page.locator('#semantics-summary').innerText().then(text=>text.includes('Semantic main landmark')))throw Error('Semantics checks not rendered');
+await page.screenshot({path:require('node:path').join(artifacts,'frog-site-files-semantics.png'),fullPage:true});
 await page.locator('#tab-previews').click();
 for(const platform of ['google','bing','facebook','linkedin','x']) {
  await page.locator('#social-tab-'+platform).click();
  if(!await page.locator('article.'+(['google','bing'].includes(platform)?'search-':'social-')+platform).isVisible())throw Error('Social preview missing');
 }
 await page.screenshot({path:require('node:path').join(artifacts,'seo-geo-frog-social-preview.png')});
+await page.locator('#tab-explore').click();
+if(!await page.locator('#panel-explore').isVisible())throw Error('Explorer tab missing');
+await page.locator('#explore-search').fill('viewport');
+if(await page.locator('#explore-results .inventory-row').count()!==1)throw Error('Metadata search failed');
+await page.locator('#explore-results .inventory-row summary').click();
+if(!await page.locator('#explore-results .inventory-row pre').isVisible())throw Error('Metadata attributes missing');
+await page.locator('#explore-search').fill('no-such-tag-9823');
+if(await page.locator('#explore-results .inventory-row').count()!==0)throw Error('Explorer empty search failed');
+await page.locator('#explore-search').fill('');
+await page.locator('#explore-kind').selectOption('libraries');
+if(!await page.locator('#explore-results').innerText().then(text=>text.includes('Next.js')))throw Error('Library evidence missing');
+await page.locator('#explore-kind').selectOption('scripts');
+if(await page.locator('#explore-results .inventory-row').count()<1)throw Error('Script inventory missing');
+await page.screenshot({path:require('node:path').join(artifacts,'frog-explorer.png'),fullPage:true});
 await page.locator('#tab-javascript').click();
 await page.locator('#status').selectOption('issue');
 if(await page.locator('.check').count()<1)throw Error('Missing runtime issue');
@@ -42,7 +64,7 @@ if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))thro
 await page.screenshot({path:require('node:path').join(artifacts,'frog-side-panel-prompts.png')});
 for(const width of [320,390,600]) {
  await page.setViewportSize({width,height:900});
- for(const key of ['overview','seo','previews','speed','javascript','fixes']) {
+ for(const key of ['overview','seo','previews','speed','javascript','explore','fixes']) {
   await page.locator('#tab-'+key).click();
   if(!await page.locator('#panel-'+key).isVisible())throw Error('Tab visibility failed: '+key);
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Horizontal overflow: '+width+' '+key);

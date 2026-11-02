@@ -308,3 +308,61 @@ test('overall grade averages available categories, respects boundaries and requi
  const mixed=overallGrade([{score:90},{score:80},{score:60},{score:null}]);
  assert.equal(mixed.score,77);assert.equal(mixed.measured,3);assert.equal(mixed.total,4);
 });
+test('inventory preserves duplicate and unnamed metadata, script attributes, and library evidence',()=>{
+ const r=audit('<meta name="description" content="one"><meta name="description" content="two"><meta charset="utf-8"><meta data-custom="value"><script src="https://cdn.example/jquery/3.7.1/jquery.min.js" defer></script><script type="module">const value = 1;</script><script id="__NEXT_DATA__" type="application/json">{}</script><script src="/app.js?library=react"></script>');
+ assert.equal(r.inventory.tags.length,4);
+ assert.equal(r.inventory.tags[3].attributes['data-custom'],'value');
+ assert.equal(r.inventory.scripts.length,4);
+ assert.equal(r.inventory.scripts[0].defer,true);
+ assert.equal(r.inventory.scripts[1].type,'module');
+ assert.ok(r.inventory.libraries.some(l=>l.name==='jQuery' && l.evidence[0].includes('jquery.min.js')));
+ assert.ok(r.inventory.libraries.some(l=>l.name==='Next.js' && l.signal==='DOM marker'));
+ assert.ok(!r.inventory.libraries.some(l=>l.name==='React'));
+});
+
+test('AEO Q&A advice distinguishes optional FAQ, community answers, and unresolved references',()=>{
+ const check=entity=>audit(`<script type="application/ld+json">${JSON.stringify(entity)}</script>`).checks.find(c=>c.title==='Q&A markup completeness');
+ const question={'@type':'Question',name:'How does this work?',answerCount:0};
+ const qa={'@type':'QAPage',mainEntity:question};
+ assert.equal(check(qa).status,'info');
+ assert.match(check(qa).evidence,/do not invent an answer/);
+ assert.equal(check({...qa,mainEntity:{...question,answerCount:1,suggestedAnswer:{'@type':'Answer',text:'A real community answer.'}}}).status,'pass');
+ assert.equal(check({...qa,mainEntity:{...question,answerCount:1}}).status,'review');
+ assert.equal(check({...qa,mainEntity:[question,question]}).status,'review');
+ assert.equal(check({'@type':'FAQPage',mainEntity:{...question,suggestedAnswer:{'@type':'Answer',text:'Not an accepted FAQ answer.'}}}).status,'review');
+ assert.equal(check({'@type':'FAQPage',mainEntity:{'@id':'#question'}}).status,'info');
+ assert.equal(check({'@type':'FAQPage',mainEntity:{...question,acceptedAnswer:{'@id':'#answer'}}}).status,'info');
+ assert.match(check(qa).advice,/Google has retired FAQ rich results/);
+});
+
+test('AEO snippet and generated fixes preserve publisher controls and reject formulaic optimization',()=>{
+ const {buildFixPrompt}=require('../prompt.js');
+ const r=audit('<main><h1>Guide</h1><h2>What next?</h2><p data-nosnippet="false">Private answer</p><div data-nosnippet="false">Also private</div></main>');
+ const snippet=r.checks.find(c=>c.title==='Answer snippet restrictions');
+ assert.match(snippet.evidence,/2 data-nosnippet region.*1 on unsupported/);
+ assert.match(snippet.advice,/Keep intentional restrictions/);
+ assert.match(snippet.advice,/including false/);
+ const prompt=buildFixPrompt(r,{findings:[snippet]});
+ assert.match(prompt,/word quota/);
+ assert.match(prompt,/never fabricate an answer/);
+ assert.match(prompt,/not full validation/);
+ assert.match(r.checks.find(c=>c.title==='AEO writing tips').advice,/not ranking requirements/);
+});
+
+test('semantic HTML accepts native and ARIA main landmarks and ignores hidden alternatives',()=>{
+ for(const html of ['<main><h1>Page</h1></main>','<div role="main"><h1>Page</h1></div>','<main>Active</main><main hidden>Inactive</main>','<main>Active</main><div aria-hidden="true"><main>Hidden</main></div>']) {
+  assert.equal(audit(html).checks.find(c=>c.title==='Semantic main landmark').status,'pass');
+ }
+ for(const html of ['<article>Article only</article>','<main>One</main><main>Two</main>','<main role="presentation">No landmark</main>']) assert.equal(audit(html).checks.find(c=>c.title==='Semantic main landmark').status,'review');
+});
+test('semantic navigation checks multiple regions without requiring optional elements',()=>{
+ const get=html=>audit(html).checks.find(c=>c.title==='Semantic navigation labels');
+ assert.equal(get('<main>Content</main>').status,'info');
+ assert.equal(get('<nav>Single</nav>').status,'pass');
+ assert.equal(get('<nav>First</nav><nav>Second</nav>').status,'review');
+ assert.equal(get('<nav aria-label="Primary">First</nav><h2 id="footer-label">Footer</h2><div role="navigation" aria-labelledby="footer-label">Second</div>').status,'pass');
+ assert.equal(get('<nav aria-label="Primary">First</nav><nav aria-labelledby="missing">Second</nav>').status,'review');
+ const r=audit('<main><div onclick="doSomething()">Action</div><button>Native</button><span hidden onclick="hidden()">Hidden</span></main>');
+ assert.match(r.checks.find(c=>c.title==='Native interactive elements').evidence,/1 exposed/);
+ assert.equal(r.checks.find(c=>c.title==='Semantic HTML inventory').status,'info');
+});

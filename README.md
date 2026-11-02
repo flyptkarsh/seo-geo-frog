@@ -10,11 +10,14 @@ An open-source Chrome extension for local SEO, generative engine optimization (G
 
 - **SEO and structured data:** inspect titles, meta descriptions, canonical and robots tags, headings, images, links, and JSON-LD syntax and basic fields.
 - **GEO signals:** review content structure, attribution, and dates where relevant.
-- **AEO checks and tips:** Review unanswered question headings, snippet restrictions, and incomplete optional Q&A markup. Get practical advice on direct answers, definitions, sources, and useful structure, with an AEO grade and fix prompts. These local heuristics do not predict AI citations.
+- **Site files:** retrieve root robots.txt and llms.txt plus up to three sitemap candidates from robots.txt and common root paths. Responses include HTTP status, format observations, and honest missing/blocked states. Requests omit credentials, stay on the audited origin, and do not follow redirects. llms.txt is optional.
+- **Semantic HTML:** inspect exposed main landmarks, navigation labels, inline div/span click handlers, and a semantic-element inventory. Accept native elements and ARIA equivalents; hidden alternatives are excluded. This is a structural review, not a complete accessibility audit or ranking score.
+- **AEO checks and tips:** Review unanswered question headings, publisher snippet controls, and the basic shape of existing optional Q&A markup. Recommendations prioritize useful, accurate answers and preserve intentional restrictions. FAQ and community Q&A have different requirements; unanswered QAPage questions and unresolved references require context, not fabricated content. No mandatory FAQs, word quotas, special AI schema, or citation guarantees. The AEO grade measures local heuristics, not answer quality or search eligibility.
 - **Overall grade badge:** Shows the page’s A–F grade, averaging available category scores with at least three graded categories. Green A/B, amber C, orange D, red F; `?` means insufficient data. The overview and tooltip disclose coverage. Clears on navigation or audit failure and refreshes on Reaudit. Pin Frog to see it; auditing still requires site access and the side panel.
 - **Report cards:** A–F category grades with a disclosed rubric and prioritized improvement bullets.
 - **Previews:** dedicated icon tabs for approximate Google, Bing, Facebook, LinkedIn, and X cards.
 - **Speed:** available navigation timings, resource sizes, blocking-script candidates, and image sizing.
+- **Explore:** search every rendered meta tag, detected JavaScript library, and script element. Expand tags for complete attributes and scripts for loading details. Library matches show URL or DOM evidence; bundled dependencies and exact versions may be unavailable. This is a top-level page snapshot, refreshed with Reaudit.
 - **JavaScript:** observe new runtime errors, unhandled rejections, resource failures, and long tasks after monitoring starts.
 - **Fix prompts:** generate editable prompts for individual findings or a collection of actionable items. Copy them into Claude, Codex, Cursor, or another coding tool with your repository.
 - **Learn as you audit:** each finding links to explanatory documentation, with a compact concept guide for every tab.
@@ -68,7 +71,7 @@ The browser audit fixture bridges Chrome APIs to a controlled test page; it does
 
 ## Privacy and limitations
 
-Analysis runs locally on the current top-level page. There is no developer analytics service, account, AI API call, persistent audit storage, or background site crawler. The extension uses only `activeTab`, `scripting`, and `sidePanel` permissions. New origins require another toolbar click.
+Analysis runs locally on the current top-level page. There is no developer analytics service, account, AI API call, persistent audit storage, or background site crawler. The extension uses only `activeTab`, `scripting`, and `sidePanel` permissions. New origins require another toolbar click. Each audit also requests public site files on the current origin without credentials or a referrer (4-second request timeout, 256 KiB file limit). Redirects, other origins, and child sitemap URLs are not followed.
 
 Preview images load only when you click **Load image**; that requests the image from its host without a referrer. Runtime monitoring remains in the page until stopped or navigation. Reports and prompts may contain page URLs, metadata, structured data, and error details: review them before sharing.
 
@@ -87,3 +90,9 @@ See the [contribution guide](CONTRIBUTING.md). Please use synthetic examples ins
 Project code is available under the [MIT license](LICENSE). Bundled Lucide icons retain their [ISC license](icons/lucide/LICENSE); Simple Icons retain their [CC0 notice](icons/SIMPLE-ICONS-LICENSE.md). Brand names and logos remain subject to their owners’ trademark rights; the license does not grant trademark rights or imply endorsement.
 
 Created by [Patrick Karsh](https://www.linkedin.com/in/patrickarsh/) · [GitHub](https://github.com/flyptkarsh) · [Lounge Frog](https://www.loungefrog.com)
+
+### AEO recommendation sources
+
+Reviewed October 26, 2026 against [Google AI feature guidance](https://developers.google.com/search/docs/appearance/ai-features), [generative AI search best practices](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide), [snippet controls](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag), [QAPage requirements](https://developers.google.com/search/docs/appearance/structured-data/qapage), and [Schema.org FAQPage](https://schema.org/FAQPage). Google [retired FAQ rich results](https://developers.google.com/search/updates) in May 2026; existing truthful FAQ markup is not a reason to promise rich results or to remove it automatically.
+
+Local checks cannot verify answer accuracy, resolved JSON-LD references, all required rich-result properties, HTTP indexing headers, complete robots.txt policy interpretation, CDN rules, or Search Console controls. Confirm the publisher's intent and current platform documentation before changing access or excerpt restrictions. Google guidance does not establish how every answer engine behaves.

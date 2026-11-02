@@ -1,5 +1,31 @@
 /* Self-contained: executed in the isolated world of the current top-level page. */
 function auditPage() {
+
+  function collectPageInventory() {
+    const attributes = node => Object.fromEntries([...node.attributes].map(a => [a.name, a.value]));
+    const tags = [...document.querySelectorAll('meta')].map(node => ({attributes: attributes(node), html: node.outerHTML}));
+    const scripts = [...document.scripts].map((node, index) => ({index: index + 1, src: node.getAttribute('src') ? node.src : '', type: node.type || 'classic', async: node.async, defer: node.defer, attributes: attributes(node), characters: node.textContent.length}));
+    const rules = [
+      ['jQuery', /(?:^|[/@])jquery(?:[.@/-]|$)/i], ['React', /(?:^|[/@])react(?:-dom)?(?:[.@/-]|$)/i],
+      ['Vue', /(?:^|[/@])vue(?:[.@/-]|$)/i], ['Angular', /(?:^|[/@])(?:angular|@angular)(?:[.@/-]|$)/i],
+      ['Next.js', /\/_next\//i], ['Nuxt', /\/_nuxt\//i], ['Svelte', /(?:^|[/@])svelte(?:[.@/-]|$)/i],
+      ['Alpine.js', /(?:^|[/@])alpinejs(?:[.@/-]|$)/i], ['Bootstrap', /(?:^|[/@])bootstrap(?:[.@/-]|$)/i],
+      ['Lodash', /(?:^|[/@])lodash(?:[.@/-]|$)/i], ['D3', /(?:^|[/@])d3(?:[.@/-]|$)/i],
+      ['Three.js', /(?:^|[/@])three(?:[.@/-]|$)/i], ['GSAP', /(?:^|[/@])gsap(?:[.@/-]|$)/i],
+      ['HTMX', /(?:^|[/@])htmx(?:[.@/-]|$)/i], ['Chart.js', /(?:^|[/@])chart(?:\.js|js)(?:[.@/-]|$)/i]
+    ];
+    const libraries = rules.flatMap(([name, pattern]) => {
+      const evidence = scripts.filter(s => {try {const u = new URL(s.src); return s.src && pattern.test(u.hostname + u.pathname);} catch {return false;}}).map(s => s.src);
+      return evidence.length ? [{name, evidence, signal: 'Script URL match'}] : [];
+    });
+    for (const [name, selector] of [['Next.js', 'script#__NEXT_DATA__'], ['Nuxt', '#__nuxt'], ['Angular', '[ng-version]']]) {
+      if (document.querySelector(selector)) {
+        const match = libraries.find(l => l.name === name);
+        if (match) match.evidence.push(selector); else libraries.push({name, evidence: [selector], signal: 'DOM marker'});
+      }
+    }
+    return {tags, scripts, libraries};
+  }
   const all = (s) => [...document.querySelectorAll(s)];
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const meta = all('meta').map(e => ({name: e.getAttribute('name') || e.getAttribute('property') || e.getAttribute('http-equiv') || (e.hasAttribute('charset') ? 'charset' : ''), content: e.getAttribute('content') || e.getAttribute('charset') || ''}));
@@ -21,7 +47,7 @@ function auditPage() {
   add('Crawl signals', canonicals.length === 1 && canonicalValid ? 'pass' : 'review', 'Canonical URL', canonicals.map(e => e.href).join(' | ') || 'Missing', 'Use one valid canonical when appropriate. This audit cannot verify the destination or Google-selected canonical.');
   const robots = meta.filter(m => /^(robots|googlebot|bingbot|gptbot|chatgpt-user|oai-searchbot)$/i.test(m.name));
   const restricted = robots.some(m => /\b(noindex|none|nosnippet)\b/i.test(m.content));
-  add('Crawl signals', restricted ? 'review' : 'pass', 'Robots meta directives', robots.map(m => `${m.name}: ${m.content}`).join('\n') || 'No supported robots meta directives found.', 'Confirm restrictions are intentional. robots.txt, HTTP X-Robots-Tag, and crawler-specific interpretation are not checked.');
+  add('Crawl signals', restricted ? 'review' : 'pass', 'Robots meta directives', robots.map(m => `${m.name}: ${m.content}`).join('\n') || 'No supported robots meta directives found.', 'Confirm restrictions are intentional. robots.txt policy, HTTP X-Robots-Tag, and crawler-specific interpretation are not evaluated by this DOM check.');
   presence('Metadata', 'Document language', document.documentElement.lang, 'Set an appropriate lang attribute for accessibility and language context.');
   presence('Metadata', 'Viewport', values('viewport').join(' | '), 'Use a mobile-friendly viewport and verify the page on mobile.');
   for (const name of ['og:title', 'og:description', 'og:image', 'og:url', 'twitter:card']) presence('Social', name, values(name).join(' | '), 'Provide relevant social preview metadata; this is not a ranking requirement.');
@@ -79,6 +105,37 @@ function auditPage() {
     }
     return clean(e.innerText ?? e.textContent);
   };
+  // Lightweight DOM semantics checks; this is not an accessibility conformance audit.
+  const exposed=e=>{
+    if(e.closest('[hidden],[aria-hidden="true"],[inert],template')) return false;
+    for(let node=e;node;node=node.parentElement) {
+      const style=getComputedStyle(node);
+      if(style.display==='none' || style.visibility==='hidden' || style.visibility==='collapse') return false;
+    }
+    return true;
+  };
+  const mains=all('main:not([role]),[role="main"],main[role="main"]').filter(exposed);
+  add('Content',mains.length===1?'pass':'review','Semantic main landmark',
+    `${mains.length} exposed main landmark(s) detected. Hidden, inert, and aria-hidden regions are excluded; complex ARIA role fallback and shadow DOM are not evaluated.`,
+    'Identify the primary page content with one exposed main element, or a valid role="main" equivalent. Keep repeated navigation outside it. Hide inactive alternative layouts. Review nested documents and dialogs before changing landmarks; article and section are not substitutes for the main landmark.');
+  const navigation=all('nav:not([role]),[role="navigation"]').filter(exposed);
+  const regionName=node=>{
+    const ids=clean(node.getAttribute('aria-labelledby')).split(' ').filter(Boolean);
+    const labelled=ids.map(id=>clean(document.getElementById(id)?.textContent)).filter(Boolean).join(' ');
+    return labelled || clean(node.getAttribute('aria-label'));
+  };
+  const unnamedNav=navigation.filter(node=>!regionName(node));
+  add('Content',navigation.length>1 && unnamedNav.length?'review':navigation.length?'pass':'info','Semantic navigation labels',
+    `${navigation.length} exposed navigation landmark(s); ${unnamedNav.length} without a detected aria-label or resolved aria-labelledby text. Label uniqueness and equivalent navigation content need manual review.`,
+    'Use nav for major navigation blocks, not every link group. When multiple navigation landmarks exist, label their purpose, such as Primary or Footer. Identical navigation can share a label; different navigation should have distinct names. A single navigation landmark does not require an explicit label. Do not add navigation where the page does not need it.');
+  const customClicks=all('div[onclick],span[onclick]').filter(exposed);
+  add('Content',customClicks.length?'review':'info','Native interactive elements',
+    `${customClicks.length} exposed div/span element(s) with inline onclick handlers. Delegated event listeners, custom elements, keyboard behavior, and accessible names are not fully inspected.`,
+    'Check what each control does before editing. Prefer button for actions and a with href for navigation; preserve styling, focus, keyboard behavior, and form semantics. Custom controls can be valid when their roles, names, states, and keyboard support are implemented correctly. Do not mechanically replace layout containers or treat this heuristic as proof of a WCAG failure.');
+  const semanticTags=['header','nav','main','article','section','aside','footer','search','figure','figcaption','time','dl','ul','ol','table'];
+  add('Content','info','Semantic HTML inventory',
+    semanticTags.map(tag=>`${tag}: ${all(tag).filter(exposed).length}`).join(' · '),
+    'Use elements for their meaning: article for self-contained content, section for a thematic group, aside for complementary content, lists for related items, and tables for tabular data. Header and footer inside sections are not necessarily page landmarks. Generic div/span containers remain appropriate for layout. Presence or tag count does not prove correct semantics, accessibility, or improved search rankings. Inspect the accessibility tree and test keyboard and assistive-technology navigation.');
   const questionHeadings = [...(main?.querySelectorAll('h1,h2,h3,h4,h5,h6') || [])].filter(e=>/[?？]$/.test(readable(e)));
   const unanswered = questionHeadings.filter(heading=>{
     // Walk in document order so wrapped answer paragraphs are supported; stop at the next heading.
@@ -97,30 +154,47 @@ function auditPage() {
   const snippetMeta=meta.filter(m=>/^(robots|googlebot)$/i.test(m.name) && /(?:\b(?:noindex|none|nosnippet)\b|\bmax-snippet\s*:\s*0(?:\s|,|;|$))/i.test(m.content));
   const excluded=[...(main?.querySelectorAll('[data-nosnippet]') || [])];
   if(main?.hasAttribute('data-nosnippet')) excluded.push(main);
+  const unsupportedExclusions=excluded.filter(e=>!e.matches('span,div,section'));
   add('AEO signals',snippetMeta.length || excluded.length ? 'review' : 'pass','Answer snippet restrictions',
-    `${snippetMeta.map(m=>`${m.name}: ${m.content}`).join(' | ') || 'No restricting Google/general robots meta found.'} ${excluded.length} data-nosnippet region(s) in main content. HTTP headers and robots.txt are not checked.`,
-    'Review whether restrictions intentionally limit indexing or snippet use. Preserve privacy and publishing choices. Passing this local check does not establish crawler access or AI visibility.');
+    `${snippetMeta.map(m=>`${m.name}: ${m.content}`).join(' | ') || 'No restricting Google/general robots meta found.'} ${excluded.length} data-nosnippet region(s) in main content; ${unsupportedExclusions.length} on unsupported elements (Google supports span, div, and section). HTTP headers, robots.txt, and Search Console controls are not checked.`,
+    'Confirm the publisher wants this content indexed or excerpted before changing controls. Keep intentional restrictions. If data-nosnippet is needed, use span, div, or section; its value is ignored, including false. Check HTTP X-Robots-Tag, robots.txt, CDN access, and Search Console separately. These Google controls do not establish access or inclusion for other answer engines.');
   const typed=(node,type)=>node && typeof node==='object' && [node['@type']].flat().some(t=>new RegExp('(^|/)'+type+'$').test(String(t)));
   const qaPages=nodes.filter(n=>typed(n,'FAQPage') || typed(n,'QAPage'));
   const qaProblems=[];
+  const qaNotes=[];
+  const hasText=v=>typeof v==='string' && clean(v);
+  const reference=v=>v && typeof v==='object' && v['@id'] && !v['@type'];
   qaPages.forEach((page,i)=>{
+    const label=`Q&A entity ${i+1}`;
+    const isQA=typed(page,'QAPage');
     const questions=[page.mainEntity].flat().filter(Boolean);
-    if(!questions.length) qaProblems.push(`Q&A entity ${i+1}: missing mainEntity.`);
+    if(!questions.length) qaProblems.push(`${label}: missing mainEntity.`);
+    if(isQA && questions.length>1) qaProblems.push(`${label}: QAPage should focus on one question, not an FAQ list.`);
     questions.forEach(q=>{
-      const answers=[q.acceptedAnswer,q.suggestedAnswer].flat().filter(Boolean);
-      const hasText=v=>typeof v==='string' && clean(v);
-      if(!typed(q,'Question') || !hasText(q.name) || !answers.some(a=>typed(a,'Answer') && hasText(a.text))) qaProblems.push(`Q&A entity ${i+1}: incomplete Question name or Answer text (references are not resolved).`);
+      if(reference(q)) {qaNotes.push(`${label}: Question reference needs manual resolution.`);return;}
+      if(!typed(q,'Question') || !hasText(q.name)) qaProblems.push(`${label}: missing Question type or question name.`);
+      const answers=(isQA ? [q.acceptedAnswer,q.suggestedAnswer] : [q.acceptedAnswer]).flat().filter(Boolean);
+      if(isQA && q.answerCount===0 && !answers.length) {
+        qaNotes.push(`${label}: unanswered question (answerCount: 0); do not invent an answer. Not eligible for a Google Q&A rich result.`);
+        return;
+      }
+      if(isQA && (!Number.isInteger(q.answerCount) || q.answerCount<0)) qaProblems.push(`${label}: verify a nonnegative integer answerCount against the actual total answers.`);
+      if(!answers.length) qaProblems.push(`${label}: missing ${isQA?'acceptedAnswer or suggestedAnswer':'acceptedAnswer'} text.`);
+      for(const answer of answers) {
+        if(reference(answer)) qaNotes.push(`${label}: Answer reference needs manual resolution.`);
+        else if(!typed(answer,'Answer') || !hasText(answer.text)) qaProblems.push(`${label}: incomplete Answer type or text.`);
+      }
     });
   });
-  add('AEO signals',qaPages.length ? qaProblems.length ? 'review' : 'pass' : 'info','Q&A markup completeness',
-    qaPages.length ? qaProblems.join('\n') || `${qaPages.length} Q&A entities contain named questions and answer text. Visible-content accuracy still needs manual review.` : 'No FAQPage or QAPage markup found. These are optional and are not required for AEO.',
-    'If Q&A markup is appropriate, use truthful Question and Answer entities that match content readers can access. Check references and type-specific rules separately. Never invent questions, answers, authors, or claim rich-result eligibility.');
+  add('AEO signals',qaPages.length ? qaProblems.length ? 'review' : qaNotes.length ? 'info' : 'pass' : 'info','Q&A markup completeness',
+    qaPages.length ? [...qaProblems,...qaNotes].join('\n') || `${qaPages.length} Q&A entities contain named questions and answer text. This is a basic shape check, not full validation or confirmation that content matches the page.` : 'No FAQPage or QAPage markup found. These are optional and are not required for AEO.',
+    'Only repair markup that fits the actual page and matches reader-accessible content, including answers in expandable sections. FAQPage describes publisher-authored FAQs; Google has retired FAQ rich results. For Google QAPage, use one question where users can submit answers, subject to its documented exceptions; verify answerCount and required properties. An unanswered question may truthfully use answerCount: 0. Resolve references and validate with Schema.org and the current Google type guide where applicable. Never fabricate answers, authors, or eligibility; missing optional markup is not a fix request.');
   add('AEO signals','info','AEO writing tips',
     `${questionHeadings.length} question headings; ${main?.querySelectorAll('dl').length || 0} definition lists. Structure alone does not establish answer quality.`,
-    'Answer the reader’s main question early. Define unfamiliar terms on first use. Use numbered steps for procedures and tables for meaningful comparisons. Support factual claims with primary sources and show relevant authorship. Keep dates accurate where freshness matters. No fixed answer length or special AI schema is required; manually check accuracy and usefulness.');
+    'Answer the reader’s main question early. Define unfamiliar terms on first use. Use numbered steps for procedures and tables for meaningful comparisons. Support factual claims with primary sources and show relevant authorship. Keep dates accurate where freshness matters. These are editorial suggestions, not ranking requirements: use them only when they help the reader. No fixed answer length, keyword density, question-heading format, FAQ section, or special AI schema is required. Do not mass-produce repetitive answers or change dates without substantive updates; manually verify accuracy and usefulness.');
   add('Crawl signals', location.protocol === 'https:' ? 'pass' : 'review', 'HTTPS', location.protocol, 'Serve public pages over HTTPS.');
   const hreflang = all('link[rel~="alternate"][hreflang]').map(e=>({language:e.hreflang,url:e.href}));
   add('Metadata','info','Language alternatives', hreflang.length ? hreflang.map(e=>`${e.language}: ${e.url}`).join('\n') : 'No hreflang links found (optional for single-language pages).', 'For localized sites, verify valid language codes and reciprocal links separately.');
-  return {version:1, url:location.href, title, auditedAt:new Date().toISOString(), checks, meta, headings, jsonld, types, canonical, stats:{words, images:images.length, links:links.length, externalLinks:external.length}, limitations:['Rendered top-level DOM only; page scripts may add or change content after this snapshot.','No site crawl, HTTP status/header checks, robots.txt evaluation, sitemap checks, link destination checks, field Core Web Vitals, or search index verification.','JSON-LD is parsed locally; schema.org vocabulary, rich-result requirements, and visible-content consistency need separate validation.','AEO and GEO observations are heuristics, not predictions of rankings, citations, or AI inclusion. No special AI schema or llms.txt is required by this audit.']};
+  return {inventory: collectPageInventory(), version:1, url:location.href, title, auditedAt:new Date().toISOString(), checks, meta, headings, jsonld, types, canonical, stats:{words, images:images.length, links:links.length, externalLinks:external.length}, limitations:['Rendered top-level DOM only; page scripts may add or change content after this snapshot.','DOM-only audit: public site-file retrieval is reported separately by the panel. No full site crawl, robots policy evaluation, link destination checks, field Core Web Vitals, or search index verification.','JSON-LD is parsed locally; schema.org vocabulary, rich-result requirements, and visible-content consistency need separate validation.','AEO and GEO observations are heuristics, not predictions of rankings, citations, or AI inclusion. No special AI schema or llms.txt is required by this audit.']};
 }
 if (typeof module !== 'undefined') module.exports = {auditPage};
